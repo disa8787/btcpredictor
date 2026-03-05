@@ -1,111 +1,81 @@
-// Initialize Telegram Web App
 const tg = window.Telegram.WebApp;
-tg.expand(); // Expand to full height
+tg.expand();
 
-// --- Chart Logic ---
-const chartOptions = {
-    layout: {
-        background: { color: 'transparent' },
-        textColor: getComputedStyle(document.body).getPropertyValue('--tg-theme-text-color'),
-    },
-    grid: {
-        vertLines: { visible: false },
-        horzLines: { color: 'rgba(197, 203, 206, 0.2)' },
-    },
+let balance = 1000.00;
+let lastPrice = 0;
+
+// 1. Настройка графика
+const chart = LightweightCharts.createChart(document.getElementById('tv-chart'), {
+    layout: { background: { color: '#161a1e' }, textColor: '#d1d4dc' },
+    grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(42, 46, 57, 0.5)' } },
     rightPriceScale: { borderVisible: false },
-    timeScale: { borderVisible: false, timeVisible: true },
-    handleScroll: false,
-    handleScale: false,
-};
+    timeScale: { borderVisible: false },
+});
 
-const container = document.getElementById('chart-container');
-const chart = LightweightCharts.createChart(container, chartOptions);
 const candleSeries = chart.addCandlestickSeries({
-    upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
-    wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+    upColor: '#02c076', downColor: '#cf304a', 
+    borderVisible: false, wickUpColor: '#02c076', wickDownColor: '#cf304a'
 });
 
-// Mock Data Generator
-function generateInitialData() {
-    const data = [];
-    let time = Math.floor(Date.now() / 1000) - 100 * 60;
-    let price = 65000;
-    for (let i = 0; i < 100; i++) {
-        const open = price + (Math.random() - 0.5) * 50;
-        const high = open + Math.random() * 50;
-        const low = open - Math.random() * 50;
-        const close = (high + low) / 2;
-        data.push({ time, open, high, low, close });
-        time += 60;
-        price = close;
-    }
-    return data;
-}
+// 2. РЕАЛЬНЫЕ ДАННЫЕ С BINANCE
+const binanceSocket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@kline_1m');
 
-candleSeries.setData(generateInitialData());
-
-// Fake Live Price Update
-setInterval(() => {
-    const lastData = generateInitialData().pop();
-    lastData.time = Math.floor(Date.now() / 1000);
-    candleSeries.update(lastData);
-    document.getElementById('market-price').innerText = `$${lastData.close.toFixed(2)}`;
-}, 2000);
-
-// --- Timer Logic ---
-let timeLeft = 300; // 5 minutes in seconds
-const countdownEl = document.getElementById('countdown');
-const progressFill = document.getElementById('progress-fill');
-
-function updateTimer() {
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    countdownEl.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+binanceSocket.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    const k = msg.k;
+    const price = parseFloat(k.c);
     
-    const percentage = (timeLeft / 300) * 100;
-    progressFill.style.width = `${percentage}%`;
+    // Обновляем график в реальном времени
+    candleSeries.update({
+        time: k.t / 1000,
+        open: parseFloat(k.o),
+        high: parseFloat(k.h),
+        low: parseFloat(k.l),
+        close: price
+    });
 
-    if (timeLeft > 0) {
-        timeLeft--;
-    } else {
-        timeLeft = 300; // Reset for demo purposes
-    }
-}
-setInterval(updateTimer, 1000);
+    // Обновляем цену в интерфейсе
+    const priceEl = document.getElementById('live-price');
+    priceEl.innerText = `$${price.toFixed(2)}`;
+    priceEl.style.color = price >= lastPrice ? '#02c076' : '#cf304a';
+    lastPrice = price;
+};
 
-// --- Live Activity Logic ---
-const orderBook = document.getElementById('order-book');
-const names = ['User123', 'CryptoKing', 'TMA_Master', 'Dev_Anon', 'WhaleWatcher'];
+// 3. ЛОГИКА СТАВОК
+function makeTrade(type) {
+    if (balance < 50) return tg.showAlert("Insufficient funds!");
 
-function addFakeOrder() {
-    const side = Math.random() > 0.45 ? 'Up' : 'Down';
-    const amount = (Math.random() * 500).toFixed(2);
-    const name = names[Math.floor(Math.random() * names.length)];
-    
+    balance -= 50;
+    updateBalance();
+    tg.HapticFeedback.impactOccurred('medium');
+
+    const list = document.getElementById('history-list');
+    if (list.querySelector('.empty')) list.innerHTML = '';
+
     const item = document.createElement('div');
-    item.className = 'order-item';
+    item.style.cssText = "display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #2b3139; font-size:12px;";
     item.innerHTML = `
-        <span>${name}</span>
-        <span>bet <span class="side-${side.toLowerCase()}">${side}</span></span>
-        <span>$${amount}</span>
+        <span style="color:${type==='up'?'#02c076':'#cf304a'}">BTC ${type.toUpperCase()}</span>
+        <span>$50.00</span>
+        <span style="color:#848e9c">In progress...</span>
     `;
-    
-    orderBook.prepend(item);
-    if (orderBook.children.length > 5) orderBook.lastChild.remove();
+    list.prepend(item);
 }
-setInterval(addFakeOrder, 3000);
 
-// --- Interaction ---
-document.getElementById('bet-up').onclick = () => {
-    tg.HapticFeedback.impactOccurred('medium');
-    tg.MainButton.setText('CONFIRM YES / UP').show();
-};
+function updateBalance() {
+    document.getElementById('balance-amount').innerText = `$${balance.toFixed(2)}`;
+}
 
-document.getElementById('bet-down').onclick = () => {
-    tg.HapticFeedback.impactOccurred('medium');
-    tg.MainButton.setText('CONFIRM NO / DOWN').show();
-};
+document.getElementById('btn-up').onclick = () => makeTrade('up');
+document.getElementById('btn-down').onclick = () => makeTrade('down');
 
-tg.onEvent('mainButtonClicked', () => {
-    tg.showConfirm("Place this bet using your balance?");
-});
+// Таймер
+let seconds = 300;
+setInterval(() => {
+    seconds--;
+    if (seconds < 0) seconds = 300;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    document.getElementById('time-left').innerText = `${m}:${s.toString().padStart(2,'0')}`;
+    document.getElementById('timer-fill').style.width = `${(seconds/300)*100}%`;
+}, 1000);
