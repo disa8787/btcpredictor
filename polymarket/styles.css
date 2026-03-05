@@ -1,0 +1,131 @@
+:root {
+    --up-color: #26a69a;
+    --down-color: #ef5350;
+    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-main);
+    background-color: var(--tg-theme-bg-color, #ffffff);
+    color: var(--tg-theme-text-color, #000000);
+    overflow-x: hidden;
+    user-select: none;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 12px;
+    box-sizing: border-box;
+}
+
+/* Header */
+.market-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.market-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.price-ticker {
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
+    color: var(--up-color);
+}
+
+/* Chart */
+#chart-container {
+    height: 250px;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+/* Timer & Progress */
+.timer-section {
+    margin-bottom: 20px;
+}
+
+.timer-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+    color: var(--tg-theme-hint-color, #999);
+}
+
+.progress-bar-bg {
+    height: 4px;
+    background: var(--tg-theme-secondary-bg-color, #eee);
+    border-radius: 2px;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 100%;
+    background: var(--tg-theme-button-color, #2481cc);
+    transition: width 1s linear;
+}
+
+/* Betting Buttons */
+.bet-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.bet-btn {
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.1s;
+}
+
+.bet-btn:active {
+    transform: scale(0.96);
+}
+
+.bet-btn.up { background-color: var(--up-color); }
+.bet-btn.down { background-color: var(--down-color); }
+
+.bet-btn .label { font-weight: bold; font-size: 1rem; }
+.bet-btn .odds { font-size: 0.8rem; opacity: 0.9; }
+
+/* Activity Log */
+.activity-log h3 {
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    color: var(--tg-theme-hint-color);
+}
+
+.order-list {
+    font-size: 0.8rem;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--tg-theme-secondary-bg-color);
+}
+
+.side-up { color: var(--up-color); font-weight: bold; }
+.side-down { color: var(--down-color); font-weight: bold; }
