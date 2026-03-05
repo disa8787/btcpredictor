@@ -3,53 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BTC 5m Predict</title>
+    <title>BTC Live Trading</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    <link rel="stylesheet" href="styles.css?v=1.1">
-<script src="app.js?v=1.1"></script>
+    <link rel="stylesheet" href="styles.css?v=99">
 </head>
 <body>
     <div id="app">
-        <header class="market-header">
-            <div class="market-title">
-                <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" width="24" alt="BTC">
-                <span>Will BTC be UP in 5m?</span>
+        <header class="top-bar">
+            <div class="wallet">
+                <span class="label">WALLET</span>
+                <span id="balance-amount">$1,000.00</span>
             </div>
-            <div id="market-price" class="price-ticker">Loading...</div>
+            <div class="price-container">
+                <span class="label">BTC/USDT</span>
+                <span id="live-price">Connecting...</span>
+            </div>
         </header>
 
-        <div id="chart-container"></div>
+        <div id="tv-chart"></div>
 
-        <div class="timer-section">
-            <div class="timer-info">
-                <span>Betting closes in: <strong id="countdown">05:00</strong></span>
-                <span id="liquidity">$12,405 Vol.</span>
+        <div class="controls">
+            <div class="round-timer">
+                <div class="progress-bar"><div id="timer-fill"></div></div>
+                <div class="timer-text">Next round in: <span id="time-left">05:00</span></div>
             </div>
-            <div class="progress-bar-bg">
-                <div id="progress-fill" class="progress-fill"></div>
+
+            <div class="actions">
+                <button id="btn-up" class="trade-btn up">UP <span>x1.95</span></button>
+                <button id="btn-down" class="trade-btn down">DOWN <span>x1.95</span></button>
             </div>
         </div>
 
-        <div class="bet-actions">
-            <button id="bet-up" class="bet-btn up">
-                <span class="label">Yes / Up</span>
-                <span class="odds" id="up-odds">54%</span>
-            </button>
-            <button id="bet-down" class="bet-btn down">
-                <span class="label">No / Down</span>
-                <span class="odds" id="down-odds">46%</span>
-            </button>
+        <div class="history">
+            <h4>My Positions</h4>
+            <div id="history-list">
+                <p class="empty">No active trades</p>
+            </div>
         </div>
-
-        <section class="activity-log">
-            <h3>Recent Positions</h3>
-            <div id="order-book" class="order-list">
-                </div>
-        </section>
     </div>
-
-    <script src="app.js"></script>
+    <script src="app.js?v=99"></script>
 </body>
 </html>
-
