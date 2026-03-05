@@ -38,67 +38,52 @@ const candleSeries = chart.addCandlestickSeries({
 
 window.addEventListener('resize', () => chart.resize(chartContainer.clientWidth, chartContainer.clientHeight));
 
-// === АНТИ-БЛОКИРОВКА BINANCE ===
-// Массив резервных серверов, если основной заблокирован провайдером
-const BINANCE_ENDPOINTS = [
-    'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=',
-    'https://api1.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=',
-    'https://api2.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=',
-    'https://api3.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=',
-    'https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1m&limit='
-];
+// === НОВЫЙ ИСТОЧНИК ДАННЫХ (БЕЗ БЛОКИРОВОК) ===
 
-async function fetchFromBinance(limit) {
-    for (let url of BINANCE_ENDPOINTS) {
-        try {
-            const res = await fetch(url + limit);
-            if (res.ok) return await res.json();
-        } catch (e) {
-            console.log("Fallback API needed, trying next...");
-        }
-    }
-    throw new Error("All APIs failed");
-}
-
-// Загрузка исторических данных
+// Загрузка исторического графика за час
 async function loadChartHistory() {
     try {
-        const data = await fetchFromBinance(60);
+        const res = await fetch('https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=60');
+        const json = await res.json();
         
+        if (json.Response === "Error") throw new Error(json.Message);
+        
+        const data = json.Data.Data;
         const historicalData = data.map(d => ({
-            time: d[0] / 1000,
-            open: parseFloat(d[1]),
-            high: parseFloat(d[2]),
-            low: parseFloat(d[3]),
-            close: parseFloat(d[4])
+            time: d.time, // CryptoCompare сразу отдает в секундах
+            open: d.open,
+            high: d.high,
+            low: d.low,
+            close: d.close
         }));
         
         candleSeries.setData(historicalData);
         currentPrice = historicalData[historicalData.length - 1].close;
         document.getElementById('chart-loader').style.display = 'none';
         
-        // Запускаем обновление только после успешной загрузки
+        // Запускаем пульсацию цены каждые 2 секунды
         setInterval(fetchLivePrice, 2000);
     } catch (e) {
-        console.error("Ошибка сети:", e);
-        document.getElementById('chart-loader').innerText = "Network Error. Retrying...";
+        console.error("Ошибка загрузки истории:", e);
+        document.getElementById('chart-loader').innerText = "Loading data...";
         setTimeout(loadChartHistory, 3000);
     }
 }
 
-// Получение цены в реальном времени
+// Загрузка последней цены и обновление свечи
 async function fetchLivePrice() {
     try {
-        const data = await fetchFromBinance(1);
-        const [t, o, h, l, c] = data[0];
+        const res = await fetch('https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=1');
+        const json = await res.json();
+        const lastCandle = json.Data.Data[json.Data.Data.length - 1];
         
-        currentPrice = parseFloat(c);
+        currentPrice = lastCandle.close;
         
         candleSeries.update({
-            time: t / 1000,
-            open: parseFloat(o),
-            high: parseFloat(h),
-            low: parseFloat(l),
+            time: lastCandle.time,
+            open: lastCandle.open,
+            high: lastCandle.high,
+            low: lastCandle.low,
             close: currentPrice
         });
 
@@ -112,10 +97,10 @@ async function fetchLivePrice() {
     }
 }
 
-// Запуск 
+// Запуск
 loadChartHistory();
 
-// Логика Ставок
+// === ЛОГИКА ИГРЫ ===
 function placeBet(direction) {
     if (currentPrice === 0) return tg.showAlert("Please wait for price data.");
     if (balance < BET_AMOUNT) return tg.showAlert("Insufficient balance!");
@@ -156,7 +141,6 @@ function placeBet(direction) {
     }, 1000);
 }
 
-// Расчет выигрыша/проигрыша
 function resolveBet(cardElement, direction, entryPrice) {
     const finalPrice = currentPrice;
     let isWin = false;
@@ -186,7 +170,7 @@ function resolveBet(cardElement, direction, entryPrice) {
     }
 }
 
-// Декоративный прогресс-бар вверху кнопок
+// Прогресс-бар
 let progressPercent = 100;
 setInterval(() => {
     progressPercent -= 2;
