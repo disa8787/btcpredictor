@@ -13,13 +13,13 @@ let balance = parseFloat(localStorage.getItem('btc_balance')) || 1000.00;
 let currentPrice = 0;
 let lastPrice = 0;
 
-// Обновление баланса в UI и памяти
+// Обновление баланса
 function updateBalance(newBalance) {
     balance = newBalance;
     localStorage.setItem('btc_balance', balance.toFixed(2));
     document.getElementById('balance-amount').innerText = `$${balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 }
-updateBalance(balance); // Первичная отрисовка
+updateBalance(balance);
 
 // Инициализация графика TradingView
 const chartContainer = document.getElementById('chart-container');
@@ -36,14 +36,34 @@ const candleSeries = chart.addCandlestickSeries({
     borderVisible: false, wickUpColor: '#00c853', wickDownColor: '#ff3d00'
 });
 
-// Адаптивность графика
 window.addEventListener('resize', () => chart.resize(chartContainer.clientWidth, chartContainer.clientHeight));
 
-// Загрузка исторических данных (чтобы график не был пустым при старте)
+// === АНТИ-БЛОКИРОВКА BINANCE ===
+// Массив резервных серверов, если основной заблокирован провайдером
+const BINANCE_ENDPOINTS = [
+    'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=',
+    'https://api1.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=',
+    'https://api2.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=',
+    'https://api3.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=',
+    'https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1m&limit='
+];
+
+async function fetchFromBinance(limit) {
+    for (let url of BINANCE_ENDPOINTS) {
+        try {
+            const res = await fetch(url + limit);
+            if (res.ok) return await res.json();
+        } catch (e) {
+            console.log("Fallback API needed, trying next...");
+        }
+    }
+    throw new Error("All APIs failed");
+}
+
+// Загрузка исторических данных
 async function loadChartHistory() {
     try {
-        const res = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=60');
-        const data = await res.json();
+        const data = await fetchFromBinance(60);
         
         const historicalData = data.map(d => ({
             time: d[0] / 1000,
@@ -57,20 +77,19 @@ async function loadChartHistory() {
         currentPrice = historicalData[historicalData.length - 1].close;
         document.getElementById('chart-loader').style.display = 'none';
         
-        // Запускаем обновление в реальном времени после загрузки истории
+        // Запускаем обновление только после успешной загрузки
         setInterval(fetchLivePrice, 2000);
     } catch (e) {
-        console.error("Ошибка загрузки истории:", e);
+        console.error("Ошибка сети:", e);
         document.getElementById('chart-loader').innerText = "Network Error. Retrying...";
         setTimeout(loadChartHistory, 3000);
     }
 }
 
-// Получение цены в реальном времени (надежный Fetch вместо капризного WebSocket)
+// Получение цены в реальном времени
 async function fetchLivePrice() {
     try {
-        const res = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=1');
-        const data = await res.json();
+        const data = await fetchFromBinance(1);
         const [t, o, h, l, c] = data[0];
         
         currentPrice = parseFloat(c);
@@ -93,7 +112,7 @@ async function fetchLivePrice() {
     }
 }
 
-// Запуск приложения
+// Запуск 
 loadChartHistory();
 
 // Логика Ставок
@@ -101,13 +120,11 @@ function placeBet(direction) {
     if (currentPrice === 0) return tg.showAlert("Please wait for price data.");
     if (balance < BET_AMOUNT) return tg.showAlert("Insufficient balance!");
 
-    // Списываем деньги
     updateBalance(balance - BET_AMOUNT);
     if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
 
     const entryPrice = currentPrice;
     
-    // UI: Убираем заглушку, добавляем карточку ставки
     const historyList = document.getElementById('history-list');
     const emptyMsg = document.getElementById('empty-history');
     if (emptyMsg) emptyMsg.remove();
@@ -127,7 +144,6 @@ function placeBet(direction) {
     `;
     historyList.prepend(card);
 
-    // Логика завершения сделки
     let timeLeft = BET_DURATION;
     const timerInterval = setInterval(() => {
         timeLeft--;
