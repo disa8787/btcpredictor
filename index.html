@@ -3,248 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BTC Predictor Live</title>
+    <title>BTC Predictor Pro</title>
+    
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     
-    <style>
-        :root {
-            --bg-color: #0b0e11;
-            --card-bg: #161a1e;
-            --text-main: #eaecef;
-            --text-dim: #848e9c;
-            --yellow: #f0b90b;
-            --up: #02c076;
-            --down: #cf304a;
-        }
-
-        body {
-            margin: 0;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-
-        #app {
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .stat-box { display: flex; flex-direction: column; }
-        .label { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
-        .value { font-size: 18px; font-weight: bold; }
-        #balance-amount { color: var(--yellow); }
-
-        #chart-box {
-            height: 250px;
-            background: var(--card-bg);
-            border-radius: 12px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .controls {
-            margin: 20px 0;
-        }
-
-        .timer-bar {
-            height: 4px;
-            background: #2b3139;
-            border-radius: 2px;
-            margin-bottom: 8px;
-        }
-
-        #progress {
-            height: 100%;
-            width: 100%;
-            background: var(--yellow);
-            transition: width 1s linear;
-        }
-
-        .buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .btn {
-            border: none;
-            border-radius: 12px;
-            padding: 18px;
-            color: white;
-            font-size: 16px;
-            font-weight: 800;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-
-        .btn:active { transform: scale(0.95); }
-        .btn.up { background: var(--up); box-shadow: 0 4px 15px rgba(2,192,118,0.2); }
-        .btn.down { background: var(--down); box-shadow: 0 4px 15px rgba(207,48,74,0.2); }
-        .btn span { display: block; font-size: 10px; font-weight: 400; opacity: 0.8; }
-
-        .history {
-            margin-top: 20px;
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .history h4 { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; text-transform: uppercase; }
-        .trade-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px;
-            background: var(--card-bg);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            font-size: 13px;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css?v=200">
 </head>
 <body>
+    <div id="app">
+        <header class="top-header">
+            <div class="stat-block">
+                <span class="label">MY BALANCE</span>
+                <span id="balance-amount" class="value balance-text">Loading...</span>
+            </div>
+            <div class="stat-block right-align">
+                <span class="label">BTC/USDT</span>
+                <span id="live-price" class="value price-text">Connecting...</span>
+            </div>
+        </header>
 
-<div id="app">
-    <header>
-        <div class="stat-box">
-            <span class="label">MY BALANCE</span>
-            <span id="balance-amount" class="value">$1,000.00</span>
+        <div id="chart-container">
+            <div id="chart-loader" class="loader">Loading Chart...</div>
         </div>
-        <div class="stat-box" style="text-align: right;">
-            <span class="label">BTC/USDT</span>
-            <span id="live-price" class="value">00,000.00</span>
+
+        <div class="progress-container">
+            <div id="progress-bar"></div>
         </div>
-    </header>
 
-    <div id="chart-box"></div>
+        <div class="controls">
+            <button class="bet-btn up-btn" onclick="placeBet('up')">
+                UP
+                <span class="payout">Payout x1.95</span>
+            </button>
+            <button class="bet-btn down-btn" onclick="placeBet('down')">
+                DOWN
+                <span class="payout">Payout x1.95</span>
+            </button>
+        </div>
 
-    <div class="controls">
-        <div class="timer-bar"><div id="progress"></div></div>
-        <div class="buttons">
-            <button class="btn up" onclick="trade('up')">UP <span>Payout x1.95</span></button>
-            <button class="btn down" onclick="trade('down')">DOWN <span>Payout x1.95</span></button>
+        <div class="history-section">
+            <h4 class="history-title">RECENT POSITIONS</h4>
+            <div id="history-list">
+                <div id="empty-history">No active trades</div>
+            </div>
         </div>
     </div>
 
-    <div class="history">
-        <h4>Recent Positions</h4>
-        <div id="history-list"></div>
-    </div>
-</div>
-
-<script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-
-    let balance = 1000.00;
-    let currentPrice = 0;
-    let lastPrice = 0;
-
-    // 1. Инициализация графика
-    const chart = LightweightCharts.createChart(document.getElementById('chart-box'), {
-        layout: { background: { color: '#161a1e' }, textColor: '#d1d4dc' },
-        grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(42, 46, 57, 0.3)' } },
-        rightPriceScale: { borderVisible: false },
-        timeScale: { borderVisible: false, timeVisible: true },
-    });
-
-    const candleSeries = chart.addCandlestickSeries({
-        upColor: '#02c076', downColor: '#cf304a', 
-        borderVisible: false, wickUpColor: '#02c076', wickDownColor: '#cf304a'
-    });
-
-    // 2. Получение данных (HTTP Fetch - самый надежный для Telegram)
-    async function tick() {
-        try {
-            const res = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=1');
-            const data = await res.json();
-            const [t, o, h, l, c] = data[0];
-            
-            currentPrice = parseFloat(c);
-            
-            candleSeries.update({
-                time: t / 1000,
-                open: parseFloat(o),
-                high: parseFloat(h),
-                low: parseFloat(l),
-                close: currentPrice
-            });
-
-            const el = document.getElementById('live-price');
-            el.innerText = `$${currentPrice.toLocaleString()}`;
-            el.style.color = currentPrice >= lastPrice ? '#02c076' : '#cf304a';
-            lastPrice = currentPrice;
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    setInterval(tick, 2000);
-    tick();
-
-    // 3. Логика ставок
-    function trade(type) {
-        if (currentPrice === 0) return;
-        const amount = 100;
-
-        if (balance < amount) {
-            tg.showAlert("Not enough money!");
-            return;
-        }
-
-        balance -= amount;
-        updateUI();
-        tg.HapticFeedback.impactOccurred('medium');
-
-        const entryPrice = currentPrice;
-        const list = document.getElementById('history-list');
-        const item = document.createElement('div');
-        item.className = 'trade-item';
-        item.innerHTML = `
-            <span style="color:${type==='up'?'#02c076':'#cf304a'}">BTC ${type.toUpperCase()} @ ${entryPrice.toFixed(2)}</span>
-            <span class="t-status">Result in 10s</span>
-        `;
-        list.prepend(item);
-
-        setTimeout(() => {
-            const win = (type === 'up' && currentPrice > entryPrice) || (type === 'down' && currentPrice < entryPrice);
-            if (win) {
-                const profit = amount * 1.95;
-                balance += profit;
-                item.innerHTML = `<span style="color:#02c076">WIN +$${profit.toFixed(2)}</span> <span>${currentPrice.toFixed(2)}</span>`;
-                tg.HapticFeedback.notificationOccurred('success');
-            } else {
-                item.innerHTML = `<span style="color:#cf304a">LOSS -$${amount}</span> <span>${currentPrice.toFixed(2)}</span>`;
-                tg.HapticFeedback.notificationOccurred('error');
-            }
-            updateUI();
-        }, 10000); // 10 секунд на сделку для теста
-    }
-
-    function updateUI() {
-        document.getElementById('balance-amount').innerText = `$${balance.toFixed(2)}`;
-    }
-
-    // Таймер прогресса
-    let p = 100;
-    setInterval(() => {
-        p -= 2;
-        if (p < 0) p = 100;
-        document.getElementById('progress').style.width = p + '%';
-    }, 1000);
-</script>
-
+    <script src="app.js?v=200"></script>
 </body>
 </html>
