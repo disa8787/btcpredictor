@@ -1,179 +1,142 @@
-// Инициализация Telegram SDK
 const tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
-// Настройки приложения
-const BET_AMOUNT = 100; // Размер одной ставки
-const BET_DURATION = 15; // Длительность ставки в секундах
-const PAYOUT_MULTIPLIER = 1.95; // Коэффициент выигрыша
+// === ТВОЙ КЛЮЧ БУДЕТ ЗДЕСЬ ===
+const API_KEY = "ОЖИДАНИЕ_КЛЮЧА"; 
+// =============================
 
-// Состояние
-let balance = parseFloat(localStorage.getItem('btc_balance')) || 1000.00;
+// Настройки Полимаркета
+const ROUND_DURATION = 300; // 5 минут в секундах
+const BET_AMOUNT = 50; 
+const PAYOUT = 1.95;
+
+let balance = parseFloat(localStorage.getItem('user_balance')) || 1000.00;
 let currentPrice = 0;
-let lastPrice = 0;
+let entryPriceForRound = null;
+let roundTimeLeft = ROUND_DURATION;
+let activeBets = [];
 
-// Обновление баланса
-function updateBalance(newBalance) {
-    balance = newBalance;
-    localStorage.setItem('btc_balance', balance.toFixed(2));
-    document.getElementById('balance-amount').innerText = `$${balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+// UI Elements
+const balanceEl = document.getElementById('balance-display');
+const priceEl = document.getElementById('live-price');
+const timerText = document.getElementById('timer-text');
+const progressBar = document.getElementById('progress-bar');
+const positionsList = document.getElementById('positions-list');
+const btnUp = document.getElementById('btn-up');
+const btnDown = document.getElementById('btn-down');
+
+function updateBalance(newBal) {
+    balance = newBal;
+    localStorage.setItem('user_balance', balance);
+    balanceEl.innerText = `$${balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 }
 updateBalance(balance);
 
 // Инициализация графика TradingView
-const chartContainer = document.getElementById('chart-container');
-const chart = LightweightCharts.createChart(chartContainer, {
+const chart = LightweightCharts.createChart(document.getElementById('chart-container'), {
     layout: { background: { color: 'transparent' }, textColor: '#848e9c' },
     grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(42, 46, 57, 0.3)' } },
-    rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.1, bottom: 0.1 } },
-    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+    rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.2, bottom: 0.2 } },
+    timeScale: { borderVisible: false, timeVisible: true },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
 });
 
 const candleSeries = chart.addCandlestickSeries({
-    upColor: '#00c853', downColor: '#ff3d00', 
-    borderVisible: false, wickUpColor: '#00c853', wickDownColor: '#ff3d00'
+    upColor: '#00c853', downColor: '#ff3d00', borderVisible: false, wickUpColor: '#00c853', wickDownColor: '#ff3d00'
 });
 
-window.addEventListener('resize', () => chart.resize(chartContainer.clientWidth, chartContainer.clientHeight));
-
-// === НОВЫЙ ИСТОЧНИК ДАННЫХ (БЕЗ БЛОКИРОВОК) ===
-
-// Загрузка исторического графика за час
-async function loadChartHistory() {
-    try {
-        const res = await fetch('https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=60');
-        const json = await res.json();
-        
-        if (json.Response === "Error") throw new Error(json.Message);
-        
-        const data = json.Data.Data;
-        const historicalData = data.map(d => ({
-            time: d.time, // CryptoCompare сразу отдает в секундах
-            open: d.open,
-            high: d.high,
-            low: d.low,
-            close: d.close
-        }));
-        
-        candleSeries.setData(historicalData);
-        currentPrice = historicalData[historicalData.length - 1].close;
-        document.getElementById('chart-loader').style.display = 'none';
-        
-        // Запускаем пульсацию цены каждые 2 секунды
-        setInterval(fetchLivePrice, 2000);
-    } catch (e) {
-        console.error("Ошибка загрузки истории:", e);
-        document.getElementById('chart-loader').innerText = "Loading data...";
-        setTimeout(loadChartHistory, 3000);
-    }
+// Заглушка, пока нет ключа. Как только ты скинешь ключ, я перепишу функции fetchHistory и fetchLivePrice!
+if (API_KEY === "ОЖИДАНИЕ_КЛЮЧА") {
+    console.warn("Waiting for API key to initialize data feed.");
+} else {
+    // Здесь будет код подключения к CryptoCompare
 }
 
-// Загрузка последней цены и обновление свечи
-async function fetchLivePrice() {
-    try {
-        const res = await fetch('https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=1');
-        const json = await res.json();
-        const lastCandle = json.Data.Data[json.Data.Data.length - 1];
-        
-        currentPrice = lastCandle.close;
-        
-        candleSeries.update({
-            time: lastCandle.time,
-            open: lastCandle.open,
-            high: lastCandle.high,
-            low: lastCandle.low,
-            close: currentPrice
-        });
+// Логика Таймера Раунда (5 минут)
+setInterval(() => {
+    roundTimeLeft--;
+    
+    // Обновляем UI таймера
+    const m = Math.floor(roundTimeLeft / 60);
+    const s = roundTimeLeft % 60;
+    timerText.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    progressBar.style.width = `${(roundTimeLeft / ROUND_DURATION) * 100}%`;
 
-        const priceEl = document.getElementById('live-price');
-        priceEl.innerText = currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2});
-        priceEl.style.color = currentPrice >= lastPrice ? 'var(--color-up)' : 'var(--color-down)';
-        lastPrice = currentPrice;
-        
-    } catch (e) {
-        console.error("Ошибка обновления цены:", e);
+    if (roundTimeLeft <= 0) {
+        resolveRound();
+        roundTimeLeft = ROUND_DURATION; // Новый раунд
+        entryPriceForRound = currentPrice; // Фиксируем стартовую цену нового раунда
     }
-}
+}, 1000);
 
-// Запуск
-loadChartHistory();
-
-// === ЛОГИКА ИГРЫ ===
+// Логика ставок
 function placeBet(direction) {
-    if (currentPrice === 0) return tg.showAlert("Please wait for price data.");
-    if (balance < BET_AMOUNT) return tg.showAlert("Insufficient balance!");
+    if (balance < BET_AMOUNT) return tg.showAlert("Insufficient funds!");
+    if (currentPrice === 0) return; // Ждем прогрузки цены
 
     updateBalance(balance - BET_AMOUNT);
-    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
-    const entryPrice = currentPrice;
+    const bet = {
+        id: Date.now(),
+        direction: direction,
+        amount: BET_AMOUNT,
+        targetPrice: entryPriceForRound || currentPrice // Цена, с которой будем сравнивать в конце раунда
+    };
     
-    const historyList = document.getElementById('history-list');
-    const emptyMsg = document.getElementById('empty-history');
-    if (emptyMsg) emptyMsg.remove();
-
-    const card = document.createElement('div');
-    card.className = 'trade-card pending';
-    
-    const directionText = direction === 'up' ? '▲ UP' : '▼ DOWN';
-    const directionColor = direction === 'up' ? 'var(--color-up)' : 'var(--color-down)';
-
-    card.innerHTML = `
-        <div>
-            <span style="color: ${directionColor}; font-weight: 800;">${directionText}</span> 
-            <span style="color: var(--text-muted);">@ ${entryPrice.toFixed(2)}</span>
-        </div>
-        <div class="countdown-timer">${BET_DURATION}s</div>
-    `;
-    historyList.prepend(card);
-
-    let timeLeft = BET_DURATION;
-    const timerInterval = setInterval(() => {
-        timeLeft--;
-        card.querySelector('.countdown-timer').innerText = `${timeLeft}s`;
-        
-        if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            resolveBet(card, direction, entryPrice);
-        }
-    }, 1000);
+    activeBets.push(bet);
+    renderPositions();
 }
 
-function resolveBet(cardElement, direction, entryPrice) {
-    const finalPrice = currentPrice;
-    let isWin = false;
+function renderPositions() {
+    if (activeBets.length === 0) {
+        positionsList.innerHTML = '<div class="empty-state">No active positions for this round.</div>';
+        return;
+    }
 
-    if (direction === 'up' && finalPrice > entryPrice) isWin = true;
-    if (direction === 'down' && finalPrice < entryPrice) isWin = true;
-
-    cardElement.classList.remove('pending');
-    
-    if (isWin) {
-        const profit = BET_AMOUNT * PAYOUT_MULTIPLIER;
-        updateBalance(balance + profit);
+    positionsList.innerHTML = '';
+    activeBets.forEach(bet => {
+        const card = document.createElement('div');
+        card.className = 'position-card';
+        const color = bet.direction === 'up' ? 'var(--color-up)' : 'var(--color-down)';
+        const dirText = bet.direction === 'up' ? '▲ UP' : '▼ DOWN';
         
-        cardElement.classList.add('win');
-        cardElement.innerHTML = `
-            <div><span style="color: var(--color-up)">WIN</span> <span style="color: var(--text-muted)">@ ${finalPrice.toFixed(2)}</span></div>
-            <div style="color: var(--color-up); font-weight: bold;">+$${profit.toFixed(2)}</div>
+        card.innerHTML = `
+            <div style="color: ${color};">${dirText} <span style="color:var(--color-hint); font-size:11px;">@ ${bet.targetPrice.toFixed(2)}</span></div>
+            <div>$${bet.amount.toFixed(2)}</div>
         `;
+        positionsList.appendChild(card);
+    });
+}
+
+function resolveRound() {
+    if (activeBets.length === 0 || currentPrice === 0) return;
+    
+    let totalWin = 0;
+    
+    activeBets.forEach(bet => {
+        let isWin = false;
+        if (bet.direction === 'up' && currentPrice > bet.targetPrice) isWin = true;
+        if (bet.direction === 'down' && currentPrice < bet.targetPrice) isWin = true;
+        
+        if (isWin) {
+            totalWin += bet.amount * PAYOUT;
+        }
+    });
+
+    if (totalWin > 0) {
+        updateBalance(balance + totalWin);
         if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        tg.showAlert(`Round finished! You won $${totalWin.toFixed(2)}!`);
     } else {
-        cardElement.classList.add('loss');
-        cardElement.innerHTML = `
-            <div><span style="color: var(--color-down)">LOSS</span> <span style="color: var(--text-muted)">@ ${finalPrice.toFixed(2)}</span></div>
-            <div style="color: var(--color-down); font-weight: bold;">-$${BET_AMOUNT.toFixed(2)}</div>
-        `;
         if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
     }
+
+    // Очищаем ставки для нового раунда
+    activeBets = [];
+    renderPositions();
 }
 
-// Прогресс-бар
-let progressPercent = 100;
-setInterval(() => {
-    progressPercent -= 2;
-    if (progressPercent < 0) progressPercent = 100;
-    document.getElementById('progress-bar').style.width = progressPercent + '%';
-}, 100);
+btnUp.onclick = () => placeBet('up');
+btnDown.onclick = () => placeBet('down');
