@@ -2,9 +2,8 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
-// === ТВОЙ КЛЮЧ БУДЕТ ЗДЕСЬ ===
+// ТВОЙ API КЛЮЧ
 const API_KEY = "af06e1a27fc084e5f89be0d0a5f0c47407dabb991d8ef11eab7b3534dc76da8b"; 
-// =============================
 
 // Настройки Полимаркета
 const ROUND_DURATION = 300; // 5 минут в секундах
@@ -25,6 +24,7 @@ const progressBar = document.getElementById('progress-bar');
 const positionsList = document.getElementById('positions-list');
 const btnUp = document.getElementById('btn-up');
 const btnDown = document.getElementById('btn-down');
+const chartLoader = document.getElementById('chart-loader');
 
 function updateBalance(newBal) {
     balance = newBal;
@@ -46,18 +46,74 @@ const candleSeries = chart.addCandlestickSeries({
     upColor: '#00c853', downColor: '#ff3d00', borderVisible: false, wickUpColor: '#00c853', wickDownColor: '#ff3d00'
 });
 
-// Заглушка, пока нет ключа. Как только ты скинешь ключ, я перепишу функции fetchHistory и fetchLivePrice!
-if (API_KEY === "ОЖИДАНИЕ_КЛЮЧА") {
-    console.warn("Waiting for API key to initialize data feed.");
-} else {
-    // Здесь будет код подключения к CryptoCompare
+// 1. ЗАГРУЗКА ИСТОРИИ И ГРАФИКА
+async function loadChartHistory() {
+    try {
+        const res = await fetch(`https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=60&api_key=${API_KEY}`);
+        const json = await res.json();
+        
+        if (json.Response === "Error") throw new Error(json.Message);
+        
+        const data = json.Data.Data;
+        const historicalData = data.map(d => ({
+            time: d.time,
+            open: d.open,
+            high: d.high,
+            low: d.low,
+            close: d.close
+        }));
+        
+        candleSeries.setData(historicalData);
+        currentPrice = historicalData[historicalData.length - 1].close;
+        entryPriceForRound = currentPrice;
+        
+        // Убираем лоадер и включаем кнопки!
+        chartLoader.style.display = 'none';
+        btnUp.removeAttribute('disabled');
+        btnDown.removeAttribute('disabled');
+        
+        // Запускаем обновление лайв цены
+        setInterval(fetchLivePrice, 2000);
+    } catch (e) {
+        console.error("History Error:", e);
+        chartLoader.innerText = "Error connecting to market. Retrying...";
+        setTimeout(loadChartHistory, 3000);
+    }
 }
 
-// Логика Таймера Раунда (5 минут)
+// 2. ПОЛУЧЕНИЕ ЦЕНЫ КАЖДЫЕ 2 СЕКУНДЫ
+async function fetchLivePrice() {
+    try {
+        const res = await fetch(`https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=1&api_key=${API_KEY}`);
+        const json = await res.json();
+        const lastCandle = json.Data.Data[json.Data.Data.length - 1];
+        
+        const oldPrice = currentPrice;
+        currentPrice = lastCandle.close;
+        
+        candleSeries.update({
+            time: lastCandle.time,
+            open: lastCandle.open,
+            high: lastCandle.high,
+            low: lastCandle.low,
+            close: currentPrice
+        });
+
+        priceEl.innerText = `$${currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        priceEl.style.color = currentPrice >= oldPrice ? '#00c853' : '#ff3d00';
+        
+    } catch (e) {
+        console.error("Live Price Error:", e);
+    }
+}
+
+// Запускаем всё
+loadChartHistory();
+
+// 3. ТАЙМЕР РАУНДА И ПОДВЕДЕНИЕ ИТОГОВ
 setInterval(() => {
     roundTimeLeft--;
     
-    // Обновляем UI таймера
     const m = Math.floor(roundTimeLeft / 60);
     const s = roundTimeLeft % 60;
     timerText.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
@@ -65,15 +121,15 @@ setInterval(() => {
 
     if (roundTimeLeft <= 0) {
         resolveRound();
-        roundTimeLeft = ROUND_DURATION; // Новый раунд
-        entryPriceForRound = currentPrice; // Фиксируем стартовую цену нового раунда
+        roundTimeLeft = ROUND_DURATION; 
+        entryPriceForRound = currentPrice; 
     }
 }, 1000);
 
-// Логика ставок
+// 4. ЛОГИКА СТАВОК
 function placeBet(direction) {
     if (balance < BET_AMOUNT) return tg.showAlert("Insufficient funds!");
-    if (currentPrice === 0) return; // Ждем прогрузки цены
+    if (currentPrice === 0) return; 
 
     updateBalance(balance - BET_AMOUNT);
     if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
@@ -82,7 +138,7 @@ function placeBet(direction) {
         id: Date.now(),
         direction: direction,
         amount: BET_AMOUNT,
-        targetPrice: entryPriceForRound || currentPrice // Цена, с которой будем сравнивать в конце раунда
+        targetPrice: entryPriceForRound || currentPrice 
     };
     
     activeBets.push(bet);
@@ -133,11 +189,9 @@ function resolveRound() {
         if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
     }
 
-    // Очищаем ставки для нового раунда
     activeBets = [];
     renderPositions();
 }
 
 btnUp.onclick = () => placeBet('up');
 btnDown.onclick = () => placeBet('down');
-
