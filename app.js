@@ -3,7 +3,7 @@ tg.expand();
 tg.ready();
 
 // === ТВОЙ КЛЮЧ БУДЕТ ЗДЕСЬ ===
-const API_KEY = "ОЖИДАНИЕ_КЛЮЧА"; 
+const API_KEY = "af06e1a27fc084e5f89be0d0a5f0c47407dabb991d8ef11eab7b3534dc76da8b"; 
 // =============================
 
 // Настройки Полимаркета
@@ -140,3 +140,4 @@ function resolveRound() {
 
 btnUp.onclick = () => placeBet('up');
 btnDown.onclick = () => placeBet('down');
+
