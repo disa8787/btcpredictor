@@ -3,55 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BTC Predictor Pro</title>
-    
+    <title>BTC 5m Market</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    
-    <link rel="stylesheet" href="styles.css?v=200">
+    <link rel="stylesheet" href="styles.css?v=1">
 </head>
 <body>
     <div id="app">
-        <header class="top-header">
-            <div class="stat-block">
-                <span class="label">MY BALANCE</span>
-                <span id="balance-amount" class="value balance-text">Loading...</span>
+        <header class="top-bar">
+            <div class="wallet-info">
+                <span class="label">WALLET BALANCE</span>
+                <span id="balance-display">$1,000.00</span>
             </div>
-            <div class="stat-block right-align">
-                <span class="label">BTC/USDT</span>
-                <span id="live-price" class="value price-text">Connecting...</span>
+            <div class="price-info">
+                <span class="label">BTC/USD LIVE</span>
+                <span id="live-price" class="pulsate">Waiting for API...</span>
             </div>
         </header>
 
-        <div id="chart-container">
-            <div id="chart-loader" class="loader">Loading Chart...</div>
+        <div id="chart-wrapper">
+            <div id="chart-container"></div>
+            <div id="chart-loader">Awaiting API Key...</div>
         </div>
 
-        <div class="progress-container">
-            <div id="progress-bar"></div>
+        <div class="market-status">
+            <div class="status-text">
+                <span>Round resolves in: <strong id="timer-text">05:00</strong></span>
+                <span style="color: var(--tg-theme-hint-color);">Pool: $24.5k</span>
+            </div>
+            <div class="progress-bg">
+                <div id="progress-bar"></div>
+            </div>
         </div>
 
-        <div class="controls">
-            <button class="bet-btn up-btn" onclick="placeBet('up')">
-                UP
-                <span class="payout">Payout x1.95</span>
+        <div class="bet-panel">
+            <button id="btn-up" class="bet-btn up-btn" disabled>
+                <div class="btn-title">Yes / UP</div>
+                <div class="btn-odds">Payout x1.95</div>
             </button>
-            <button class="bet-btn down-btn" onclick="placeBet('down')">
-                DOWN
-                <span class="payout">Payout x1.95</span>
+            <button id="btn-down" class="bet-btn down-btn" disabled>
+                <div class="btn-title">No / DOWN</div>
+                <div class="btn-odds">Payout x1.95</div>
             </button>
         </div>
 
-        <div class="history-section">
-            <h4 class="history-title">RECENT POSITIONS</h4>
-            <div id="history-list">
-                <div id="empty-history">No active trades</div>
+        <div class="positions-section">
+            <h3 class="section-title">My Positions</h3>
+            <div id="positions-list">
+                <div class="empty-state">No active positions for this round.</div>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=400"></script>
+    <script src="app.js?v=1"></script>
 </body>
 </html>
-
-
