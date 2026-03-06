@@ -3,210 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BTC 5m Market</title>
+    <title>BTC Predictor Live</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        :root {
-            --color-up: #00c853;
-            --color-down: #ff3d00;
-            --color-bg: var(--tg-theme-bg-color, #131722);
-            --color-text: var(--tg-theme-text-color, #d1d4dc);
-            --color-hint: var(--tg-theme-hint-color, #848e9c);
-            --color-card: var(--tg-theme-secondary-bg-color, #1e222d);
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--color-bg); color: var(--color-text); overflow: hidden; user-select: none; -webkit-tap-highlight-color: transparent; }
-        #app { display: flex; flex-direction: column; height: 100vh; padding: 16px; }
-        .top-bar { display: flex; justify-content: space-between; margin-bottom: 16px; }
-        .label { font-size: 10px; font-weight: 700; color: var(--color-hint); letter-spacing: 0.5px; display: block; margin-bottom: 4px; text-transform: uppercase; }
-        #balance-display { font-size: 20px; font-weight: 800; color: #f0b90b; }
-        #live-price { font-size: 20px; font-weight: 800; font-family: 'Courier New', monospace; }
-        #chart-wrapper { position: relative; height: 260px; background: var(--color-card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 16px; }
-        #chart-container { width: 100%; height: 100%; }
-        #chart-loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--color-hint); font-size: 14px; font-weight: 600; }
-        .market-status { margin-bottom: 16px; }
-        .status-text { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; font-weight: 500; }
-        .progress-bg { height: 6px; background: var(--color-card); border-radius: 3px; overflow: hidden; }
-        #progress-bar { height: 100%; width: 100%; background: #2962ff; transition: width 1s linear; }
-        .bet-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
-        .bet-btn { border: none; border-radius: 12px; padding: 16px 10px; color: white; cursor: pointer; transition: transform 0.1s, opacity 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.5; }
-        .bet-btn:not([disabled]) { opacity: 1; }
-        .bet-btn:not([disabled]):active { transform: scale(0.96); }
-        .up-btn { background: var(--color-up); box-shadow: 0 4px 16px rgba(0, 200, 83, 0.2); }
-        .down-btn { background: var(--color-down); box-shadow: 0 4px 16px rgba(255, 61, 0, 0.2); }
-        .btn-title { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
-        .btn-odds { font-size: 11px; font-weight: 600; opacity: 0.9; }
-        .positions-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .section-title { font-size: 13px; color: var(--color-hint); text-transform: uppercase; margin-bottom: 12px; }
-        #positions-list { flex: 1; overflow-y: auto; }
-        .empty-state { text-align: center; color: var(--color-hint); font-size: 13px; margin-top: 20px; }
-        .position-card { background: var(--color-card); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; }
+        :root { --up: #00c853; --down: #ff3d00; --bg: #131722; --card: #1e222d; --text: #d1d4dc; --hint: #848e9c; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: var(--bg); color: var(--text); overflow: hidden; padding: 15px; }
+        #debug-log { color: #ff5252; font-size: 11px; margin-bottom: 5px; word-wrap: break-word; font-family: monospace; }
+        header { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .label { font-size: 10px; color: var(--hint); margin-bottom: 4px; display: block; }
+        .val { font-size: 20px; font-weight: bold; }
+        #balance { color: #f0b90b; }
+        #chart-wrap { position: relative; height: 260px; background: var(--card); border-radius: 12px; margin-bottom: 15px; }
+        #chart { width: 100%; height: 100%; }
+        #loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--hint); }
+        .timer-bar { height: 6px; background: var(--card); border-radius: 3px; margin-bottom: 20px; }
+        #progress { height: 100%; width: 100%; background: #2962ff; transition: 1s linear; }
+        .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        button { border: none; border-radius: 12px; padding: 15px; color: white; font-size: 16px; font-weight: bold; opacity: 0.5; transition: 0.2s; }
+        button:not([disabled]) { opacity: 1; cursor: pointer; }
+        button:not([disabled]):active { transform: scale(0.95); }
+        #btn-up { background: var(--up); }
+        #btn-down { background: var(--down); }
+        .pos-title { font-size: 12px; color: var(--hint); margin-bottom: 10px; text-transform: uppercase; }
+        #positions { overflow-y: auto; max-height: 150px; }
+        .card { background: var(--card); padding: 10px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="app">
-        <header class="top-bar">
-            <div class="wallet-info"><span class="label">WALLET BALANCE</span><span id="balance-display">$1,000.00</span></div>
-            <div class="price-info"><span class="label">BTC/USD LIVE</span><span id="live-price">Loading...</span></div>
-        </header>
-        <div id="chart-wrapper">
-            <div id="chart-container"></div>
-            <div id="chart-loader">Connecting to Market...</div>
-        </div>
-        <div class="market-status">
-            <div class="status-text"><span>Round resolves in: <strong id="timer-text">05:00</strong></span><span style="color: var(--tg-theme-hint-color);">Pool: $24.5k</span></div>
-            <div class="progress-bg"><div id="progress-bar"></div></div>
-        </div>
-        <div class="bet-panel">
-            <button id="btn-up" class="bet-btn up-btn" disabled><div class="btn-title">Yes / UP</div><div class="btn-odds">Payout x1.95</div></button>
-            <button id="btn-down" class="bet-btn down-btn" disabled><div class="btn-title">No / DOWN</div><div class="btn-odds">Payout x1.95</div></button>
-        </div>
-        <div class="positions-section">
-            <h3 class="section-title">My Positions</h3>
-            <div id="positions-list"><div class="empty-state">No active positions for this round.</div></div>
-        </div>
+    <div id="debug-log"></div>
+    
+    <header>
+        <div><span class="label">WALLET</span><span id="balance" class="val">$1,000.00</span></div>
+        <div style="text-align:right;"><span class="label">BTC/USD</span><span id="price" class="val">Wait...</span></div>
+    </header>
+    
+    <div id="chart-wrap">
+        <div id="chart"></div>
+        <div id="loader">Connecting to Market...</div>
     </div>
+    
+    <div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">
+            <span>Round resolves in: <strong id="timer">05:00</strong></span>
+        </div>
+        <div class="timer-bar"><div id="progress"></div></div>
+    </div>
+    
+    <div class="btns">
+        <button id="btn-up" disabled>UP (x1.95)</button>
+        <button id="btn-down" disabled>DOWN (x1.95)</button>
+    </div>
+    
+    <div>
+        <div class="pos-title">My Positions</div>
+        <div id="positions"><div style="color:var(--hint); font-size:12px; text-align:center;">No active positions</div></div>
+    </div>
+
     <script>
+        // 1. УБИЙЦА ОШИБОК: Выводим на экран любую причину поломки
+        window.onerror = function(msg, url, line) {
+            document.getElementById('debug-log').innerText += "[КРИТ. ОШИБКА] " + msg + " (Строка " + line + ")\n";
+        };
+
         const tg = window.Telegram.WebApp;
-        tg.expand();
-        tg.ready();
+        try { tg.expand(); } catch(e) {}
 
-        const API_KEY = "af06e1a27fc084e5f89be0d0a5f0c47407dabb991d8ef11eab7b3534dc76da8b"; 
-        const ROUND_DURATION = 300; 
-        const BET_AMOUNT = 50; 
-        const PAYOUT = 1.95;
-
-        let balance = parseFloat(localStorage.getItem('user_balance')) || 1000.00;
-        let currentPrice = 0;
-        let entryPriceForRound = null;
-        let roundTimeLeft = ROUND_DURATION;
-        let activeBets = [];
-
-        const balanceEl = document.getElementById('balance-display');
-        const priceEl = document.getElementById('live-price');
-        const timerText = document.getElementById('timer-text');
-        const progressBar = document.getElementById('progress-bar');
-        const positionsList = document.getElementById('positions-list');
-        const btnUp = document.getElementById('btn-up');
-        const btnDown = document.getElementById('btn-down');
-        const chartLoader = document.getElementById('chart-loader');
-
-        function updateBalance(newBal) {
-            balance = newBal;
-            localStorage.setItem('user_balance', balance);
-            balanceEl.innerText = '$' + balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const API_KEY = "af06e1a27fc084e5f89be0d0a5f0c47407dabb991d8ef11eab7b3534dc76da8b";
+        
+        // 2. БЕЗОПАСНЫЙ LOCALSTORAGE (Обход защиты Инкогнито)
+        let balance = 1000.00;
+        try {
+            if (localStorage.getItem('user_bal')) balance = parseFloat(localStorage.getItem('user_bal'));
+        } catch(e) { 
+            document.getElementById('debug-log').innerText += "[Внимание] Память заблокирована браузером, баланс не сохранится.\n"; 
         }
-        updateBalance(balance);
 
-        const chart = LightweightCharts.createChart(document.getElementById('chart-container'), {
+        function updateBal(b) {
+            balance = b;
+            try { localStorage.setItem('user_bal', b); } catch(e){}
+            document.getElementById('balance').innerText = '$' + b.toFixed(2);
+        }
+        updateBal(balance);
+
+        const chart = LightweightCharts.createChart(document.getElementById('chart'), {
             layout: { background: { color: 'transparent' }, textColor: '#848e9c' },
-            grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(42, 46, 57, 0.3)' } },
-            rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.2, bottom: 0.2 } },
-            timeScale: { borderVisible: false, timeVisible: true },
-            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+            timeScale: { timeVisible: true }
         });
+        const series = chart.addCandlestickSeries({ upColor: '#00c853', downColor: '#ff3d00', borderVisible: false, wickUpColor: '#00c853', wickDownColor: '#ff3d00' });
 
-        const candleSeries = chart.addCandlestickSeries({
-            upColor: '#00c853', downColor: '#ff3d00', borderVisible: false, wickUpColor: '#00c853', wickDownColor: '#ff3d00'
-        });
+        let curPrice = 0, entryPrice = 0, timeLeft = 300, bets = [];
 
-        async function loadChartHistory() {
+        // 3. БРОНЕБОЙНОЕ ПОЛУЧЕНИЕ ДАННЫХ (CryptoCompare -> если блок, то Binance)
+        async function getKlines(limit) {
             try {
-                const res = await fetch('https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=60&api_key=' + API_KEY);
-                const json = await res.json();
-                if (json.Response === "Error") throw new Error(json.Message);
-                const data = json.Data.Data;
-                const historicalData = data.map(d => ({ time: d.time, open: d.open, high: d.high, low: d.low, close: d.close }));
-                candleSeries.setData(historicalData);
-                currentPrice = historicalData[historicalData.length - 1].close;
-                entryPriceForRound = currentPrice;
-                chartLoader.style.display = 'none';
-                btnUp.removeAttribute('disabled');
-                btnDown.removeAttribute('disabled');
-                setInterval(fetchLivePrice, 2000);
-            } catch (e) {
-                console.error("History Error:", e);
-                chartLoader.innerText = "Retrying connection...";
-                setTimeout(loadChartHistory, 3000);
+                const r = await fetch(`https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=${limit}&api_key=${API_KEY}`);
+                const j = await r.json();
+                if (j.Response !== "Error") return j.Data.Data.map(d => ({time: d.time, open: d.open, high: d.high, low: d.low, close: d.close}));
+            } catch(e) { 
+                document.getElementById('debug-log').innerText += "[Внимание] CryptoCompare недоступен, пробуем Binance...\n"; 
+            }
+            
+            // Если первый способ провалился - тянем напрямую с Бинанса
+            const r2 = await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=${limit+1}`);
+            const j2 = await r2.json();
+            return j2.map(d => ({time: d[0]/1000, open: parseFloat(d[1]), high: parseFloat(d[2]), low: parseFloat(d[3]), close: parseFloat(d[4])}));
+        }
+
+        async function init() {
+            try {
+                const data = await getKlines(60);
+                series.setData(data);
+                curPrice = data[data.length-1].close;
+                entryPrice = curPrice;
+                
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('btn-up').removeAttribute('disabled');
+                document.getElementById('btn-down').removeAttribute('disabled');
+                
+                setInterval(updateLive, 2000);
+            } catch(e) {
+                document.getElementById('loader').innerText = "Network Blocked";
+                document.getElementById('debug-log').innerText += "[КРИТ. ОШИБКА] Не удалось загрузить график: " + e.message + "\n";
             }
         }
 
-        async function fetchLivePrice() {
+        async function updateLive() {
             try {
-                const res = await fetch('https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=1&api_key=' + API_KEY);
-                const json = await res.json();
-                const lastCandle = json.Data.Data[json.Data.Data.length - 1];
-                const oldPrice = currentPrice;
-                currentPrice = lastCandle.close;
-                candleSeries.update({ time: lastCandle.time, open: lastCandle.open, high: lastCandle.high, low: lastCandle.low, close: currentPrice });
-                priceEl.innerText = '$' + currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2});
-                priceEl.style.color = currentPrice >= oldPrice ? '#00c853' : '#ff3d00';
-            } catch (e) {}
+                const data = await getKlines(1);
+                const last = data[data.length-1];
+                const old = curPrice;
+                curPrice = last.close;
+                series.update(last);
+                
+                const el = document.getElementById('price');
+                el.innerText = '$' + curPrice.toFixed(2);
+                el.style.color = curPrice >= old ? '#00c853' : '#ff3d00';
+            } catch(e) {}
         }
 
-        loadChartHistory();
+        init();
 
         setInterval(() => {
-            roundTimeLeft--;
-            const m = Math.floor(roundTimeLeft / 60);
-            const s = roundTimeLeft % 60;
-            timerText.innerText = m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0');
-            progressBar.style.width = (roundTimeLeft / ROUND_DURATION) * 100 + '%';
-            if (roundTimeLeft <= 0) {
-                resolveRound();
-                roundTimeLeft = ROUND_DURATION; 
-                entryPriceForRound = currentPrice; 
-            }
+            timeLeft--;
+            document.getElementById('timer').innerText = Math.floor(timeLeft/60).toString().padStart(2,'0') + ':' + (timeLeft%60).toString().padStart(2,'0');
+            document.getElementById('progress').style.width = (timeLeft/300)*100 + '%';
+            if(timeLeft <= 0) { resolve(); timeLeft = 300; entryPrice = curPrice; }
         }, 1000);
 
-        function placeBet(direction) {
-            if (balance < BET_AMOUNT) return tg.showAlert("Insufficient funds!");
-            if (currentPrice === 0) return; 
-            updateBalance(balance - BET_AMOUNT);
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-            activeBets.push({ id: Date.now(), direction: direction, amount: BET_AMOUNT, targetPrice: entryPriceForRound || currentPrice });
-            renderPositions();
+        function bet(dir) {
+            if(balance < 50 || curPrice === 0) return;
+            updateBal(balance - 50);
+            bets.push({dir: dir, p: entryPrice || curPrice});
+            render();
         }
 
-        function renderPositions() {
-            if (activeBets.length === 0) {
-                positionsList.innerHTML = '<div class="empty-state">No active positions for this round.</div>';
-                return;
-            }
-            positionsList.innerHTML = '';
-            activeBets.forEach(bet => {
-                const card = document.createElement('div');
-                card.className = 'position-card';
-                const color = bet.direction === 'up' ? 'var(--color-up)' : 'var(--color-down)';
-                const dirText = bet.direction === 'up' ? '▲ UP' : '▼ DOWN';
-                card.innerHTML = '<div style="color: ' + color + ';">' + dirText + ' <span style="color:var(--color-hint); font-size:11px;">@ ' + bet.targetPrice.toFixed(2) + '</span></div><div>$' + bet.amount.toFixed(2) + '</div>';
-                positionsList.appendChild(card);
+        function render() {
+            const b = document.getElementById('positions');
+            if(bets.length === 0) return b.innerHTML = '<div style="color:var(--hint); font-size:12px; text-align:center;">No active positions</div>';
+            b.innerHTML = '';
+            bets.forEach(x => {
+                b.innerHTML += `<div class="card">
+                    <span style="color:${x.dir==='up'?'#00c853':'#ff3d00'}">${x.dir.toUpperCase()} @ ${x.p.toFixed(2)}</span>
+                    <span>$50.00</span>
+                </div>`;
             });
         }
 
-        function resolveRound() {
-            if (activeBets.length === 0 || currentPrice === 0) return;
-            let totalWin = 0;
-            activeBets.forEach(bet => {
-                let isWin = false;
-                if (bet.direction === 'up' && currentPrice > bet.targetPrice) isWin = true;
-                if (bet.direction === 'down' && currentPrice < bet.targetPrice) isWin = true;
-                if (isWin) totalWin += bet.amount * PAYOUT;
+        function resolve() {
+            if(bets.length === 0 || curPrice === 0) return;
+            let win = 0;
+            bets.forEach(x => {
+                if(x.dir === 'up' && curPrice > x.p) win += 50 * 1.95;
+                if(x.dir === 'down' && curPrice < x.p) win += 50 * 1.95;
             });
-            if (totalWin > 0) {
-                updateBalance(balance + totalWin);
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                tg.showAlert('Round finished! You won $' + totalWin.toFixed(2) + '!');
-            } else {
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+            if(win > 0) { 
+                updateBal(balance + win); 
+                try{ tg.showAlert('You won $'+win.toFixed(2)); } catch(e){ alert('You won $'+win.toFixed(2)); } 
             }
-            activeBets = [];
-            renderPositions();
+            bets = []; render();
         }
 
-        btnUp.onclick = () => placeBet('up');
-        btnDown.onclick = () => placeBet('down');
+        document.getElementById('btn-up').onclick = () => bet('up');
+        document.getElementById('btn-down').onclick = () => bet('down');
     </script>
 </body>
 </html>
