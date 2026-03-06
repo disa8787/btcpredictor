@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>BTC Predictor Live</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root { --up: #00c853; --down: #ff3d00; --bg: #131722; --card: #1e222d; --text: #d1d4dc; --hint: #848e9c; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
@@ -62,7 +62,6 @@
     </div>
 
     <script>
-        // 1. УБИЙЦА ОШИБОК: Выводим на экран любую причину поломки
         window.onerror = function(msg, url, line) {
             document.getElementById('debug-log').innerText += "[КРИТ. ОШИБКА] " + msg + " (Строка " + line + ")\n";
         };
@@ -72,7 +71,6 @@
 
         const API_KEY = "af06e1a27fc084e5f89be0d0a5f0c47407dabb991d8ef11eab7b3534dc76da8b";
         
-        // 2. БЕЗОПАСНЫЙ LOCALSTORAGE (Обход защиты Инкогнито)
         let balance = 1000.00;
         try {
             if (localStorage.getItem('user_bal')) balance = parseFloat(localStorage.getItem('user_bal'));
@@ -88,7 +86,7 @@
         updateBal(balance);
 
         const chart = LightweightCharts.createChart(document.getElementById('chart'), {
-            layout: { background: { color: 'transparent' }, textColor: '#848e9c' },
+            layout: { backgroundColor: 'transparent', textColor: '#848e9c' },
             grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
             timeScale: { timeVisible: true }
         });
@@ -96,98 +94,13 @@
 
         let curPrice = 0, entryPrice = 0, timeLeft = 300, bets = [];
 
-        // 3. БРОНЕБОЙНОЕ ПОЛУЧЕНИЕ ДАННЫХ (CryptoCompare -> если блок, то Binance)
         async function getKlines(limit) {
             try {
                 const r = await fetch(`https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=${limit}&api_key=${API_KEY}`);
                 const j = await r.json();
                 if (j.Response !== "Error") return j.Data.Data.map(d => ({time: d.time, open: d.open, high: d.high, low: d.low, close: d.close}));
-            } catch(e) { 
-                document.getElementById('debug-log').innerText += "[Внимание] CryptoCompare недоступен, пробуем Binance...\n"; 
-            }
+            } catch(e) {}
             
-            // Если первый способ провалился - тянем напрямую с Бинанса
             const r2 = await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=${limit+1}`);
             const j2 = await r2.json();
-            return j2.map(d => ({time: d[0]/1000, open: parseFloat(d[1]), high: parseFloat(d[2]), low: parseFloat(d[3]), close: parseFloat(d[4])}));
-        }
-
-        async function init() {
-            try {
-                const data = await getKlines(60);
-                series.setData(data);
-                curPrice = data[data.length-1].close;
-                entryPrice = curPrice;
-                
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('btn-up').removeAttribute('disabled');
-                document.getElementById('btn-down').removeAttribute('disabled');
-                
-                setInterval(updateLive, 2000);
-            } catch(e) {
-                document.getElementById('loader').innerText = "Network Blocked";
-                document.getElementById('debug-log').innerText += "[КРИТ. ОШИБКА] Не удалось загрузить график: " + e.message + "\n";
-            }
-        }
-
-        async function updateLive() {
-            try {
-                const data = await getKlines(1);
-                const last = data[data.length-1];
-                const old = curPrice;
-                curPrice = last.close;
-                series.update(last);
-                
-                const el = document.getElementById('price');
-                el.innerText = '$' + curPrice.toFixed(2);
-                el.style.color = curPrice >= old ? '#00c853' : '#ff3d00';
-            } catch(e) {}
-        }
-
-        init();
-
-        setInterval(() => {
-            timeLeft--;
-            document.getElementById('timer').innerText = Math.floor(timeLeft/60).toString().padStart(2,'0') + ':' + (timeLeft%60).toString().padStart(2,'0');
-            document.getElementById('progress').style.width = (timeLeft/300)*100 + '%';
-            if(timeLeft <= 0) { resolve(); timeLeft = 300; entryPrice = curPrice; }
-        }, 1000);
-
-        function bet(dir) {
-            if(balance < 50 || curPrice === 0) return;
-            updateBal(balance - 50);
-            bets.push({dir: dir, p: entryPrice || curPrice});
-            render();
-        }
-
-        function render() {
-            const b = document.getElementById('positions');
-            if(bets.length === 0) return b.innerHTML = '<div style="color:var(--hint); font-size:12px; text-align:center;">No active positions</div>';
-            b.innerHTML = '';
-            bets.forEach(x => {
-                b.innerHTML += `<div class="card">
-                    <span style="color:${x.dir==='up'?'#00c853':'#ff3d00'}">${x.dir.toUpperCase()} @ ${x.p.toFixed(2)}</span>
-                    <span>$50.00</span>
-                </div>`;
-            });
-        }
-
-        function resolve() {
-            if(bets.length === 0 || curPrice === 0) return;
-            let win = 0;
-            bets.forEach(x => {
-                if(x.dir === 'up' && curPrice > x.p) win += 50 * 1.95;
-                if(x.dir === 'down' && curPrice < x.p) win += 50 * 1.95;
-            });
-            if(win > 0) { 
-                updateBal(balance + win); 
-                try{ tg.showAlert('You won $'+win.toFixed(2)); } catch(e){ alert('You won $'+win.toFixed(2)); } 
-            }
-            bets = []; render();
-        }
-
-        document.getElementById('btn-up').onclick = () => bet('up');
-        document.getElementById('btn-down').onclick = () => bet('down');
-    </script>
-</body>
-</html>
+            return j2.map(d => ({time: d[0]/
